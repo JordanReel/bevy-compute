@@ -1,0 +1,8 @@
+{
+	"editor.formatOnSave": true,
+	"editor.formatOnPaste": true,
+	"rust-analyzer.showUnlinkedFileNotification": false,
+	"rust-analyzer.rustfmt.extraArgs": [
+		"+nightly"
+	],
+}

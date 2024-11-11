@@ -1,0 +1,11 @@
+[package]
+name = "bevy-compute"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "bevy_compute"
+crate-type = ["lib"]
+
+[dependencies]
+bevy = "0.14"
