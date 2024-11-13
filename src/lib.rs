@@ -26,9 +26,9 @@ use shader_buffer_set::ShaderBufferSetPlugin;
 
 use crate::shader_buffer_set::ShaderBufferHandle;
 
-pub struct ComputeShaderPlugin;
+pub struct BevyComputePlugin;
 
-impl Plugin for ComputeShaderPlugin {
+impl Plugin for BevyComputePlugin {
 	fn build(&self, app: &mut App) {
 		let (sender, receiver) = sync_channel(16);
 
