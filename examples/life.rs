@@ -8,7 +8,7 @@ use bevy::{
 };
 use bevy_compute::{
 	active_compute_pipeline::{ComputePipelineGroup, PipelineData, PipelineStep},
-	shader_buffer_set::{ShaderBufferHandle, ShaderBufferSet},
+	shader_buffer_set::{Binding, ShaderBufferHandle, ShaderBufferSet},
 	BevyComputePlugin, StartComputeEvent,
 };
 
@@ -37,7 +37,7 @@ fn main() {
 			BevyComputePlugin,
 		))
 		.add_systems(Startup, setup)
-		.add_systems(Update, switch_textures)
+		.add_systems(Update, switch_texture)
 		.run();
 }
 
@@ -45,30 +45,21 @@ fn setup(
 	mut commands: Commands, mut buffer_set: ResMut<ShaderBufferSet>, mut images: ResMut<Assets<Image>>,
 	mut start_compute_events: EventWriter<StartComputeEvent>,
 ) {
-	let image0 = buffer_set.add_write_texture(
+	let image = buffer_set.add_write_texture(
 		&mut images,
 		SIZE.0,
 		SIZE.1,
 		TextureFormat::R32Float,
 		&0.0f32.to_ne_bytes(),
 		StorageTextureAccess::ReadOnly,
-		Some((0, 0)),
-	);
-	let image1 = buffer_set.add_write_texture(
-		&mut images,
-		SIZE.0,
-		SIZE.1,
-		TextureFormat::R32Float,
-		&0.0f32.to_ne_bytes(),
-		StorageTextureAccess::WriteOnly,
-		Some((0, 1)),
+		Binding::Double(0, (0, 1)),
 	);
 
-	commands.insert_resource(LifeBuffers { image0, image1 });
+	commands.insert_resource(LifeBuffer(image));
 
 	commands.spawn(SpriteBundle {
 		sprite: Sprite { custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)), ..default() },
-		texture: buffer_set.image_handle(image0).unwrap(),
+		texture: buffer_set.image_handle(image).unwrap(),
 		transform: Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
 		..default()
 	});
@@ -79,57 +70,52 @@ fn setup(
 			ComputePipelineGroup {
 				label: Some("Init".to_owned()),
 				iterations: NonZeroU32::new(1),
-				steps: vec![PipelineStep {
-					max_frequency: None,
-					pipeline_data: PipelineData::RunShader {
-						shader: SHADER_ASSET_PATH.to_owned(),
-						entry_point: "init".to_owned(),
-						x_workgroup_count: SIZE.0 / WORKGROUP_SIZE,
-						y_workgroup_count: SIZE.1 / WORKGROUP_SIZE,
-						z_workgroup_count: 1,
+				steps: vec![
+					PipelineStep {
+						max_frequency: None,
+						pipeline_data: PipelineData::RunShader {
+							shader: SHADER_ASSET_PATH.to_owned(),
+							entry_point: "init".to_owned(),
+							x_workgroup_count: SIZE.0 / WORKGROUP_SIZE,
+							y_workgroup_count: SIZE.1 / WORKGROUP_SIZE,
+							z_workgroup_count: 1,
+						},
 					},
-				}],
+					PipelineStep { max_frequency: None, pipeline_data: PipelineData::SwapBuffers { buffer: image } },
+				],
 			},
 			ComputePipelineGroup {
 				label: Some("Update".to_owned()),
 				iterations: None,
-				steps: vec![PipelineStep {
-					max_frequency: None,
-					pipeline_data: PipelineData::RunShader {
-						shader: SHADER_ASSET_PATH.to_owned(),
-						entry_point: "update".to_owned(),
-						x_workgroup_count: SIZE.0 / WORKGROUP_SIZE,
-						y_workgroup_count: SIZE.1 / WORKGROUP_SIZE,
-						z_workgroup_count: 1,
+				steps: vec![
+					PipelineStep {
+						max_frequency: NonZeroU32::new(10),
+						pipeline_data: PipelineData::RunShader {
+							shader: SHADER_ASSET_PATH.to_owned(),
+							entry_point: "update".to_owned(),
+							x_workgroup_count: SIZE.0 / WORKGROUP_SIZE,
+							y_workgroup_count: SIZE.1 / WORKGROUP_SIZE,
+							z_workgroup_count: 1,
+						},
 					},
-				}],
+					PipelineStep {
+						max_frequency: NonZeroU32::new(10),
+						pipeline_data: PipelineData::SwapBuffers { buffer: image },
+					},
+				],
 			},
 		],
 		iteration_buffer: None,
 	});
 }
 
-fn switch_textures(
-	buffers: Res<LifeBuffers>, mut sprite: Query<&mut Handle<Image>, With<Sprite>>,
-	mut buffer_set: ResMut<ShaderBufferSet>,
+fn switch_texture(
+	buffer: Res<LifeBuffer>, mut sprite: Query<&mut Handle<Image>, With<Sprite>>, buffer_set: ResMut<ShaderBufferSet>,
 ) {
-	let image0 = buffer_set.image_handle(buffers.image0).unwrap();
-	let image1 = buffer_set.image_handle(buffers.image1).unwrap();
+	let image = buffer_set.image_handle(buffer.0).unwrap();
 	let mut sprite = sprite.single_mut();
-	if *sprite == image0 {
-		*sprite = image1;
-		buffer_set.set_storage_texture_access(buffers.image1, StorageTextureAccess::ReadOnly);
-		buffer_set.set_storage_texture_access(buffers.image0, StorageTextureAccess::WriteOnly);
-	} else {
-		*sprite = image0;
-		buffer_set.set_storage_texture_access(buffers.image0, StorageTextureAccess::ReadOnly);
-		buffer_set.set_storage_texture_access(buffers.image1, StorageTextureAccess::WriteOnly);
-	}
-	buffer_set.swap_buffers(buffers.image0, buffers.image1);
+	*sprite = image;
 }
 
 #[derive(Resource)]
-struct LifeBuffers {
-	image0: ShaderBufferHandle,
-	image1: ShaderBufferHandle,
-}
+struct LifeBuffer(ShaderBufferHandle);

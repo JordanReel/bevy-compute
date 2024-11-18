@@ -1,11 +1,11 @@
 pub mod active_compute_pipeline;
 mod compute_bind_groups;
+mod compute_data_transmission;
 mod compute_main_setup;
-mod compute_main_update;
 mod compute_node;
 mod compute_render_setup;
-mod compute_data_transmission;
 mod extract_resources;
+mod parse_render_messages;
 mod queue_bind_group;
 pub mod shader_buffer_set;
 
@@ -16,11 +16,11 @@ use bevy::{
 	prelude::*,
 	render::{Render, RenderApp, RenderSet},
 };
-use compute_main_setup::compute_main_setup;
-use compute_main_update::compute_main_update;
-use compute_render_setup::compute_render_setup;
 use compute_data_transmission::ComputeDataTransmission;
+use compute_main_setup::compute_main_setup;
+use compute_render_setup::compute_render_setup;
 use extract_resources::extract_resources;
+use parse_render_messages::parse_render_messages;
 use queue_bind_group::queue_bind_group;
 use shader_buffer_set::ShaderBufferSetPlugin;
 
@@ -36,7 +36,7 @@ impl Plugin for BevyComputePlugin {
 			.add_plugins(ShaderBufferSetPlugin)
 			.insert_non_send_resource(ComputeDataTransmission { sender, receiver })
 			.add_systems(Update, compute_main_setup)
-			.add_systems(Update, compute_main_update.run_if(resource_exists::<ActiveComputePipeline>))
+			.add_systems(First, parse_render_messages.run_if(resource_exists::<ActiveComputePipeline>))
 			.add_event::<StartComputeEvent>()
 			.add_event::<CopyBufferEvent>()
 			.add_event::<ComputeGroupDoneEvent>();

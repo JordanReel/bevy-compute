@@ -41,4 +41,7 @@ pub enum PipelineData {
 	CopyBuffer {
 		src: ShaderBufferHandle,
 	},
+	SwapBuffers {
+		buffer: ShaderBufferHandle,
+	},
 }

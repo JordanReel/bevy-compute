@@ -4,10 +4,11 @@ use super::{
 	compute_data_transmission::{ComputeDataTransmission, ComputeMessage},
 	ComputeGroupDoneEvent, CopyBufferEvent,
 };
+use crate::shader_buffer_set::ShaderBufferSet;
 
-pub fn compute_main_update(
+pub fn parse_render_messages(
 	mut copy_buffer_events: EventWriter<CopyBufferEvent>, mut group_done_events: EventWriter<ComputeGroupDoneEvent>,
-	transmission: NonSend<ComputeDataTransmission>,
+	mut buffer_set: ResMut<ShaderBufferSet>, transmission: NonSend<ComputeDataTransmission>,
 ) {
 	while let Ok(data) = transmission.receiver.try_recv() {
 		match data {
@@ -16,6 +17,9 @@ pub fn compute_main_update(
 			}
 			ComputeMessage::GroupDone(event) => {
 				group_done_events.send(event);
+			}
+			ComputeMessage::SwapBuffers(handle) => {
+				buffer_set.swap_front_buffer(handle);
 			}
 		}
 	}

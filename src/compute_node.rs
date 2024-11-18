@@ -272,6 +272,9 @@ impl Node for ComputeNode {
 						panic!("Somehow got to trying to run a RunShader pipeline step with no pipeline ID");
 					}
 				}
+				PipelineData::SwapBuffers { buffer } => {
+					self.pipelines.sender.send(ComputeMessage::SwapBuffers(buffer)).unwrap();
+				}
 			}
 		}
 
