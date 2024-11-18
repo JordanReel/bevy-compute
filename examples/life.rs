@@ -7,7 +7,7 @@ use bevy::{
 	render::render_resource::{StorageTextureAccess, TextureFormat},
 };
 use bevy_compute::{
-	active_compute_pipeline::{ComputePipelineGroup, PipelineData, PipelineStep},
+	compute_sequence::{ComputeAction, ComputeStep, ComputeTask},
 	shader_buffer_set::{Binding, ShaderBufferSet},
 	BevyComputePlugin, DoubleBufferedSprite, StartComputeEvent,
 };
@@ -66,14 +66,14 @@ fn setup(
 	commands.spawn(Camera2dBundle::default());
 
 	start_compute_events.send(StartComputeEvent {
-		groups: vec![
-			ComputePipelineGroup {
+		tasks: vec![
+			ComputeTask {
 				label: Some("Init".to_owned()),
 				iterations: NonZeroU32::new(1),
 				steps: vec![
-					PipelineStep {
+					ComputeStep {
 						max_frequency: None,
-						pipeline_data: PipelineData::RunShader {
+						action: ComputeAction::RunShader {
 							shader: SHADER_ASSET_PATH.to_owned(),
 							entry_point: "init".to_owned(),
 							x_workgroup_count: SIZE.0 / WORKGROUP_SIZE,
@@ -81,16 +81,16 @@ fn setup(
 							z_workgroup_count: 1,
 						},
 					},
-					PipelineStep { max_frequency: None, pipeline_data: PipelineData::SwapBuffers { buffer: image } },
+					ComputeStep { max_frequency: None, action: ComputeAction::SwapBuffers { buffer: image } },
 				],
 			},
-			ComputePipelineGroup {
+			ComputeTask {
 				label: Some("Update".to_owned()),
 				iterations: None,
 				steps: vec![
-					PipelineStep {
+					ComputeStep {
 						max_frequency: NonZeroU32::new(10),
-						pipeline_data: PipelineData::RunShader {
+						action: ComputeAction::RunShader {
 							shader: SHADER_ASSET_PATH.to_owned(),
 							entry_point: "update".to_owned(),
 							x_workgroup_count: SIZE.0 / WORKGROUP_SIZE,
@@ -98,10 +98,7 @@ fn setup(
 							z_workgroup_count: 1,
 						},
 					},
-					PipelineStep {
-						max_frequency: NonZeroU32::new(10),
-						pipeline_data: PipelineData::SwapBuffers { buffer: image },
-					},
+					ComputeStep { max_frequency: NonZeroU32::new(10), action: ComputeAction::SwapBuffers { buffer: image } },
 				],
 			},
 		],

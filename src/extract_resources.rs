@@ -3,19 +3,19 @@ use bevy::{
 	render::{extract_resource::ExtractResource, Extract},
 };
 
-use super::active_compute_pipeline::ActiveComputePipeline;
+use super::compute_sequence::ComputeSequence;
 
 pub fn extract_resources(
-	mut commands: Commands, main_data: Extract<Option<Res<ActiveComputePipeline>>>,
-	target_data: Option<ResMut<ActiveComputePipeline>>,
+	mut commands: Commands, main_data: Extract<Option<Res<ComputeSequence>>>,
+	target_data: Option<ResMut<ComputeSequence>>,
 ) {
 	if let Some(main_data) = &*main_data {
 		if let Some(mut target_data) = target_data {
 			if main_data.is_changed() {
-				*target_data = ActiveComputePipeline::extract_resource(&main_data);
+				*target_data = ComputeSequence::extract_resource(&main_data);
 			}
 		} else {
-			commands.insert_resource(ActiveComputePipeline::extract_resource(&main_data));
+			commands.insert_resource(ComputeSequence::extract_resource(&main_data));
 		}
 	}
 }

@@ -6,27 +6,27 @@ use super::compute_data_transmission::ComputeMessage;
 use crate::shader_buffer_set::ShaderBufferHandle;
 
 #[derive(Resource, Clone, ExtractResource)]
-pub struct ActiveComputePipeline {
+pub struct ComputeSequence {
 	pub sender: SyncSender<ComputeMessage>,
-	pub groups: Vec<ComputePipelineGroup>,
+	pub tasks: Vec<ComputeTask>,
 	pub iteration_buffer: Option<ShaderBufferHandle>,
 }
 
 #[derive(Clone)]
-pub struct ComputePipelineGroup {
+pub struct ComputeTask {
 	pub label: Option<String>,
 	pub iterations: Option<NonZeroU32>,
-	pub steps: Vec<PipelineStep>,
+	pub steps: Vec<ComputeStep>,
 }
 
 #[derive(Clone)]
-pub struct PipelineStep {
+pub struct ComputeStep {
 	pub max_frequency: Option<NonZeroU32>,
-	pub pipeline_data: PipelineData,
+	pub action: ComputeAction,
 }
 
 #[derive(Clone)]
-pub enum PipelineData {
+pub enum ComputeAction {
 	RunShader {
 		shader: String,
 		entry_point: String,

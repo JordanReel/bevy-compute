@@ -18,24 +18,24 @@ use bevy::{
 };
 
 use super::{
-	active_compute_pipeline::{ActiveComputePipeline, PipelineData, PipelineStep},
 	compute_bind_groups::ComputeBindGroups,
 	compute_data_transmission::ComputeMessage,
+	compute_sequence::{ComputeAction, ComputeSequence, ComputeStep},
 	ComputeGroupDoneEvent, CopyBufferEvent,
 };
 use crate::shader_buffer_set::{ShaderBufferRenderSet, ShaderBufferSet};
 
 pub struct ComputeNode {
-	pipelines: ActiveComputePipeline,
-	current_pipeline_group: usize,
+	sequence: ComputeSequence,
+	current_task: usize,
 	current_pipelines_loaded: bool,
-	step_states: Vec<PipelineStepState>,
+	step_states: Vec<ComputeStepState>,
 	iterations: u32,
 	group_start_time: Instant,
 }
 
-struct PipelineStepState {
-	step: PipelineStep,
+struct ComputeStepState {
+	step: ComputeStep,
 	id: Option<CachedComputePipelineId>,
 	last_run_time: Instant,
 	run_this_time: bool,
@@ -43,10 +43,10 @@ struct PipelineStepState {
 }
 
 impl ComputeNode {
-	pub fn new(pipelines: &ActiveComputePipeline) -> Self {
+	pub fn new(sequence: &ComputeSequence) -> Self {
 		Self {
-			pipelines: pipelines.clone(),
-			current_pipeline_group: 0,
+			sequence: sequence.clone(),
+			current_task: 0,
 			current_pipelines_loaded: false,
 			step_states: Vec::new(),
 			iterations: 0,
@@ -77,8 +77,8 @@ impl ComputeNode {
 
 impl Node for ComputeNode {
 	fn update(&mut self, world: &mut World) {
-		// All the pipeline groups have been completed, so there's nothing to do.
-		if self.current_pipeline_group >= self.pipelines.groups.len() {
+		// All the tasks have been completed, so there's nothing to do.
+		if self.current_task >= self.sequence.tasks.len() {
 			return;
 		}
 
@@ -87,47 +87,47 @@ impl Node for ComputeNode {
 			ResMut<ShaderBufferRenderSet>,
 			Res<RenderDevice>,
 			Res<RenderQueue>,
-			Res<ActiveComputePipeline>,
+			Res<ComputeSequence>,
 			ResMut<PipelineCache>,
 			Res<AssetServer>,
 		)> = SystemState::new(world);
-		let (mut buffers, mut render_buffers, device, render_queue, pipelines, mut pipeline_cache, asset_server) =
+		let (mut buffers, mut render_buffers, device, render_queue, sequence, mut pipeline_cache, asset_server) =
 			system_state.get_mut(world);
 
-		let group = &self.pipelines.groups[self.current_pipeline_group];
+		let group = &self.sequence.tasks[self.current_task];
 
 		// If there's a maximum number of iterations, check if it's been reached.
-		// If it has, clean up after this pipeline group and move on to the next.
+		// If it has, clean up after this task and move on to the next.
 		// This is an assignment, as it has to update the extracted group if the
 		// group is complete.
 		let group = if let Some(max_iterations) = group.iterations {
 			if self.iterations >= max_iterations.get() {
 				for step in self.step_states.iter() {
-					if let PipelineData::CopyBuffer { src } = step.step.pipeline_data {
+					if let ComputeAction::CopyBuffer { src } = step.step.action {
 						render_buffers.remove_copy_buffer(src);
 					}
 				}
 				let now = Instant::now();
-				self.current_pipeline_group += 1;
+				self.current_task += 1;
 				self.current_pipelines_loaded = false;
 				self.step_states.clear();
 				self.iterations = 0;
 				self
-					.pipelines
+					.sequence
 					.sender
 					.send(ComputeMessage::GroupDone(ComputeGroupDoneEvent {
-						group_finished: self.current_pipeline_group - 1,
+						group_finished: self.current_task - 1,
 						group_finished_label: group.label.clone(),
 						time_in_group: now - self.group_start_time,
-						final_group: self.current_pipeline_group == self.pipelines.groups.len(),
+						final_group: self.current_task == self.sequence.tasks.len(),
 					}))
 					.unwrap();
 				self.group_start_time = now;
-				// All the pipeline groups have been completed, so there's nothing to do.
-				if self.current_pipeline_group >= self.pipelines.groups.len() {
+				// All the tasks have been completed, so there's nothing to do.
+				if self.current_task >= self.sequence.tasks.len() {
 					return;
 				}
-				&self.pipelines.groups[self.current_pipeline_group]
+				&self.sequence.tasks[self.current_task]
 			} else {
 				group
 			}
@@ -140,10 +140,10 @@ impl Node for ComputeNode {
 		// the pipelines in the PipelineCache.
 		if self.step_states.len() == 0 {
 			for step in group.steps.iter() {
-				if let PipelineData::CopyBuffer { src } = step.pipeline_data {
+				if let ComputeAction::CopyBuffer { src } = step.action {
 					render_buffers.create_copy_buffer(src, &buffers, &device);
 				}
-				let id = if let PipelineData::RunShader { shader, entry_point, .. } = &step.pipeline_data {
+				let id = if let ComputeAction::RunShader { shader, entry_point, .. } = &step.action {
 					let bind_group_layouts = buffers.bind_group_layouts(&device);
 					let shader = asset_server.load(shader);
 					Some(pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -157,7 +157,7 @@ impl Node for ComputeNode {
 				} else {
 					None
 				};
-				self.step_states.push(PipelineStepState {
+				self.step_states.push(ComputeStepState {
 					step: step.clone(),
 					id,
 					last_run_time: if let Some(max_frequency) = step.max_frequency {
@@ -175,14 +175,14 @@ impl Node for ComputeNode {
 		// If the pipelines have not been marked as loaded, check them.
 		// If they're loaded, mark them as such. Otherwise we can't continue yet.
 		if !self.current_pipelines_loaded {
-			let pipeline_states = self.step_states.iter().flat_map(|step| {
+			let step_states = self.step_states.iter().flat_map(|step| {
 				if let Some(id) = step.id {
 					Some(pipeline_cache.get_compute_pipeline_state(id))
 				} else {
 					None
 				}
 			});
-			let state = pipeline_states.fold(Some(Ok(())), |acc, x| match (acc, x) {
+			let state = step_states.fold(Some(Ok(())), |acc, x| match (acc, x) {
 				(None, _) => None,
 				(Some(Err(e)), _) => Some(Err(e)),
 				(Some(Ok(_)), CachedPipelineState::Ok(_)) => Some(Ok(())),
@@ -203,7 +203,7 @@ impl Node for ComputeNode {
 		//   - if it's a buffer copy, alternate whether it copies into or out of the
 		//     copy buffer
 		if self.current_pipelines_loaded {
-			if let Some(buffer) = pipelines.iteration_buffer {
+			if let Some(buffer) = sequence.iteration_buffer {
 				buffers.set_buffer(buffer, self.iterations, &render_queue);
 			}
 			self.iterations += 1;
@@ -231,8 +231,8 @@ impl Node for ComputeNode {
 	fn run(
 		&self, _graph: &mut RenderGraphContext, context: &mut RenderContext, world: &World,
 	) -> Result<(), NodeRunError> {
-		// All the pipeline groups have been completed, so there's nothing to do.
-		if self.current_pipeline_group >= self.pipelines.groups.len() {
+		// All the tasks have been completed, so there's nothing to do.
+		if self.current_task >= self.sequence.tasks.len() {
 			return Ok(());
 		}
 
@@ -253,27 +253,27 @@ impl Node for ComputeNode {
 				continue;
 			}
 
-			match step.step.pipeline_data {
-				PipelineData::CopyBuffer { src } => {
+			match step.step.action {
+				ComputeAction::CopyBuffer { src } => {
 					if step.copy_buffer_ready {
 						let data = render_buffers.copy_from_copy_buffer_to_vec(src, device);
-						self.pipelines.sender.send(ComputeMessage::CopyBuffer(CopyBufferEvent { buffer: src, data })).unwrap();
+						self.sequence.sender.send(ComputeMessage::CopyBuffer(CopyBufferEvent { buffer: src, data })).unwrap();
 					} else {
 						render_buffers.copy_to_copy_buffer(src, buffers, context);
 					}
 				}
-				PipelineData::CopyTexture { src, dst } => {
+				ComputeAction::CopyTexture { src, dst } => {
 					buffers.copy_texture(src, dst, context, images);
 				}
-				PipelineData::RunShader { x_workgroup_count, y_workgroup_count, z_workgroup_count, .. } => {
+				ComputeAction::RunShader { x_workgroup_count, y_workgroup_count, z_workgroup_count, .. } => {
 					if let Some(id) = step.id {
 						self.run_shader(id, x_workgroup_count, y_workgroup_count, z_workgroup_count, world, context);
 					} else {
-						panic!("Somehow got to trying to run a RunShader pipeline step with no pipeline ID");
+						panic!("Somehow got to trying to run a RunShader action step with no pipeline ID");
 					}
 				}
-				PipelineData::SwapBuffers { buffer } => {
-					self.pipelines.sender.send(ComputeMessage::SwapBuffers(buffer)).unwrap();
+				ComputeAction::SwapBuffers { buffer } => {
+					self.sequence.sender.send(ComputeMessage::SwapBuffers(buffer)).unwrap();
 				}
 			}
 		}
