@@ -8,6 +8,7 @@ mod extract_resources;
 mod parse_render_messages;
 mod queue_bind_group;
 pub mod shader_buffer_set;
+mod swap_sprite_buffers;
 
 use std::{sync::mpsc::sync_channel, time::Duration};
 
@@ -23,6 +24,7 @@ use extract_resources::extract_resources;
 use parse_render_messages::parse_render_messages;
 use queue_bind_group::queue_bind_group;
 use shader_buffer_set::ShaderBufferSetPlugin;
+use swap_sprite_buffers::swap_sprite_buffers;
 
 use crate::shader_buffer_set::ShaderBufferHandle;
 
@@ -37,6 +39,7 @@ impl Plugin for BevyComputePlugin {
 			.insert_non_send_resource(ComputeDataTransmission { sender, receiver })
 			.add_systems(Update, compute_main_setup)
 			.add_systems(First, parse_render_messages.run_if(resource_exists::<ActiveComputePipeline>))
+			.add_systems(Update, swap_sprite_buffers.run_if(resource_exists::<ActiveComputePipeline>))
 			.add_event::<StartComputeEvent>()
 			.add_event::<CopyBufferEvent>()
 			.add_event::<ComputeGroupDoneEvent>();
@@ -68,3 +71,6 @@ pub struct ComputeGroupDoneEvent {
 	pub time_in_group: Duration,
 	pub final_group: bool,
 }
+
+#[derive(Component)]
+pub struct DoubleBufferedSprite(pub ShaderBufferHandle);

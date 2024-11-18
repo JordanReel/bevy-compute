@@ -8,8 +8,8 @@ use bevy::{
 };
 use bevy_compute::{
 	active_compute_pipeline::{ComputePipelineGroup, PipelineData, PipelineStep},
-	shader_buffer_set::{Binding, ShaderBufferHandle, ShaderBufferSet},
-	BevyComputePlugin, StartComputeEvent,
+	shader_buffer_set::{Binding, ShaderBufferSet},
+	BevyComputePlugin, DoubleBufferedSprite, StartComputeEvent,
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -37,7 +37,6 @@ fn main() {
 			BevyComputePlugin,
 		))
 		.add_systems(Startup, setup)
-		.add_systems(Update, switch_texture)
 		.run();
 }
 
@@ -55,14 +54,15 @@ fn setup(
 		Binding::Double(0, (0, 1)),
 	);
 
-	commands.insert_resource(LifeBuffer(image));
-
-	commands.spawn(SpriteBundle {
-		sprite: Sprite { custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)), ..default() },
-		texture: buffer_set.image_handle(image).unwrap(),
-		transform: Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
-		..default()
-	});
+	commands.spawn((
+		SpriteBundle {
+			sprite: Sprite { custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)), ..default() },
+			texture: buffer_set.image_handle(image).unwrap(),
+			transform: Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
+			..default()
+		},
+		DoubleBufferedSprite(image),
+	));
 	commands.spawn(Camera2dBundle::default());
 
 	start_compute_events.send(StartComputeEvent {
@@ -108,14 +108,3 @@ fn setup(
 		iteration_buffer: None,
 	});
 }
-
-fn switch_texture(
-	buffer: Res<LifeBuffer>, mut sprite: Query<&mut Handle<Image>, With<Sprite>>, buffer_set: ResMut<ShaderBufferSet>,
-) {
-	let image = buffer_set.image_handle(buffer.0).unwrap();
-	let mut sprite = sprite.single_mut();
-	*sprite = image;
-}
-
-#[derive(Resource)]
-struct LifeBuffer(ShaderBufferHandle);
