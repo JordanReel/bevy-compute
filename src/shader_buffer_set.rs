@@ -556,7 +556,7 @@ fn extract_resources(mut commands: Commands, buffers: Extract<Option<Res<ShaderB
 }
 
 #[derive(Resource)]
-pub struct ShaderBufferRenderSet {
+pub(crate) struct ShaderBufferRenderSet {
 	copy_buffers: HashMap<ShaderBufferHandle, Buffer>,
 }
 
@@ -639,7 +639,7 @@ impl ShaderBufferRenderSet {
 	}
 }
 
-pub struct ShaderBufferSetPlugin;
+pub(crate) struct ShaderBufferSetPlugin;
 
 impl Plugin for ShaderBufferSetPlugin {
 	fn build(&self, app: &mut App) {

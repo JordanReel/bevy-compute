@@ -6,7 +6,7 @@ use super::compute_data_transmission::ComputeMessage;
 use crate::shader_buffer_set::ShaderBufferHandle;
 
 #[derive(Resource, Clone, ExtractResource)]
-pub struct ComputeSequence {
+pub(crate) struct ComputeSequence {
 	pub sender: SyncSender<ComputeMessage>,
 	pub tasks: Vec<ComputeTask>,
 	pub iteration_buffer: Option<ShaderBufferHandle>,

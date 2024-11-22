@@ -7,9 +7,8 @@ use bevy::{
 	render::render_resource::{StorageTextureAccess, TextureFormat},
 };
 use bevy_compute::{
-	compute_sequence::{ComputeAction, ComputeStep, ComputeTask},
-	shader_buffer_set::{Binding, ShaderBufferSet},
-	BevyComputePlugin, DoubleBufferedSprite, StartComputeEvent,
+	BevyComputePlugin, Binding, ComputeAction, ComputeStep, ComputeTask, DoubleBufferedSprite, ShaderBufferSet,
+	StartComputeEvent,
 };
 
 /// This example uses a shader source file from the assets subdirectory

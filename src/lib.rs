@@ -3,11 +3,11 @@ mod compute_data_transmission;
 mod compute_main_setup;
 mod compute_node;
 mod compute_render_setup;
-pub mod compute_sequence;
+mod compute_sequence;
 mod extract_resources;
 mod parse_render_messages;
 mod queue_bind_group;
-pub mod shader_buffer_set;
+mod shader_buffer_set;
 mod swap_sprite_buffers;
 
 use std::{sync::mpsc::sync_channel, time::Duration};
@@ -19,14 +19,14 @@ use bevy::{
 use compute_data_transmission::ComputeDataTransmission;
 use compute_main_setup::compute_main_setup;
 use compute_render_setup::compute_render_setup;
-use compute_sequence::{ComputeSequence, ComputeTask};
+use compute_sequence::ComputeSequence;
+pub use compute_sequence::*;
 use extract_resources::extract_resources;
 use parse_render_messages::parse_render_messages;
 use queue_bind_group::queue_bind_group;
 use shader_buffer_set::ShaderBufferSetPlugin;
+pub use shader_buffer_set::*;
 use swap_sprite_buffers::swap_sprite_buffers;
-
-use crate::shader_buffer_set::ShaderBufferHandle;
 
 pub struct BevyComputePlugin;
 
