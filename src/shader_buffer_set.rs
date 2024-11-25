@@ -252,7 +252,7 @@ impl ShaderBufferInfo {
 				image.texture_descriptor.usage =
 					TextureUsages::COPY_SRC | TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
 				let image = images.add(image);
-				ShaderBufferStorage::StorageTexture { format, access: StorageTextureAccess::ReadWrite, image: image }
+				ShaderBufferStorage::StorageTexture { format, access: StorageTextureAccess::WriteOnly, image: image }
 			}),
 		)
 	}
