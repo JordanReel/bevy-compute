@@ -12,8 +12,8 @@ use bevy::{
 			encase::private::{WriteInto, Writer},
 			BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
 			BufferBindingType, BufferDescriptor, BufferInitDescriptor, BufferUsages, Extent3d, Maintain, MapMode,
-			ShaderStages, ShaderType, StorageBuffer, StorageTextureAccess, TextureDimension, TextureFormat,
-			TextureSampleType, TextureUsages, TextureViewDimension,
+			ShaderStages, ShaderType, StorageBuffer, StorageTextureAccess, TextureDimension, TextureFormat, TextureUsages,
+			TextureViewDimension,
 		},
 		renderer::{RenderContext, RenderDevice, RenderQueue},
 		texture::GpuImage,
@@ -26,7 +26,6 @@ use bevy::{
 enum ShaderBufferStorage {
 	Storage { buffer: Buffer, readonly: bool },
 	Uniform(Buffer),
-	Texture { image: Handle<Image> },
 	StorageTexture { format: TextureFormat, access: StorageTextureAccess, image: Handle<Image> },
 }
 
@@ -37,10 +36,6 @@ impl ShaderBufferStorage {
 				BindGroupEntry { binding, resource: buffer.as_entire_binding() }
 			}
 			ShaderBufferStorage::Uniform(buffer) => BindGroupEntry { binding, resource: buffer.as_entire_binding() },
-			ShaderBufferStorage::Texture { image } => {
-				let image = gpu_images.get(image).unwrap();
-				BindGroupEntry { binding, resource: BindingResource::TextureView(&image.texture_view) }
-			}
 			ShaderBufferStorage::StorageTexture { image, .. } => {
 				let image = gpu_images.get(image).unwrap();
 				BindGroupEntry { binding, resource: BindingResource::TextureView(&image.texture_view) }
@@ -58,11 +53,6 @@ impl ShaderBufferStorage {
 			ShaderBufferStorage::Uniform(_) => {
 				BindingType::Buffer { ty: BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None }
 			}
-			ShaderBufferStorage::Texture { .. } => BindingType::Texture {
-				sample_type: TextureSampleType::Float { filterable: true },
-				view_dimension: TextureViewDimension::D2,
-				multisampled: false,
-			},
 			ShaderBufferStorage::StorageTexture { format, access, .. } => BindingType::StorageTexture {
 				access: access_override.unwrap_or(*access),
 				format: *format,
@@ -92,9 +82,6 @@ impl ShaderBufferStorage {
 		match &self {
 			ShaderBufferStorage::Storage { buffer, .. } => buffer.destroy(),
 			ShaderBufferStorage::Uniform(buffer) => buffer.destroy(),
-			ShaderBufferStorage::Texture { image } => {
-				images.remove(image);
-			}
 			ShaderBufferStorage::StorageTexture { image, .. } => {
 				images.remove(image);
 			}
@@ -103,7 +90,7 @@ impl ShaderBufferStorage {
 
 	pub fn image_handle(&self) -> Option<Handle<Image>> {
 		match self {
-			ShaderBufferStorage::Texture { image } | ShaderBufferStorage::StorageTexture { image, .. } => Some(image.clone()),
+			ShaderBufferStorage::StorageTexture { image, .. } => Some(image.clone()),
 			_ => None,
 		}
 	}
@@ -222,39 +209,6 @@ impl ShaderBufferInfo {
 			let image = images.add(image);
 			ShaderBufferStorage::StorageTexture { format, access, image }
 		})
-	}
-
-	fn new_read_write_texture(
-		images: &mut Assets<Image>, width: u32, height: u32, format: TextureFormat, fill: &[u8], read_binding: Binding,
-		write_binding: Binding,
-	) -> (Self, Self) {
-		(
-			Self::new(read_binding, || {
-				let mut image = Image::new_fill(
-					Extent3d { width: width, height: height, depth_or_array_layers: 1 },
-					TextureDimension::D2,
-					fill,
-					format,
-					RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
-				);
-				image.texture_descriptor.usage = TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING;
-				let image = images.add(image);
-				ShaderBufferStorage::Texture { image: image }
-			}),
-			Self::new(write_binding, || {
-				let mut image = Image::new_fill(
-					Extent3d { width: width, height: height, depth_or_array_layers: 1 },
-					TextureDimension::D2,
-					fill,
-					format,
-					RenderAssetUsages::RENDER_WORLD,
-				);
-				image.texture_descriptor.usage =
-					TextureUsages::COPY_SRC | TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
-				let image = images.add(image);
-				ShaderBufferStorage::StorageTexture { format, access: StorageTextureAccess::WriteOnly, image: image }
-			}),
-		)
 	}
 
 	fn bind_group_entries<'a>(&'a self, gpu_images: &'a RenderAssets<GpuImage>) -> Vec<BindGroupEntry<'a>> {
@@ -437,30 +391,12 @@ impl ShaderBufferSet {
 	/// - fill: One pixel's worth of data, provided as a byte array. The entire texture will be filled with this.
 	/// - access: Whether this texture is read-only, write-only or read-write. This is ignored if the texture is double buffered.
 	/// - binding: How the buffer will be bound for access from the shader. See [Binding] for details. Specifying [Binding::Double] makes this a double buffer, in which case the access mode specified in the previous argument is ignored.
-	pub fn add_write_texture(
+	pub fn add_texture_fill(
 		&mut self, images: &mut Assets<Image>, width: u32, height: u32, format: TextureFormat, fill: &[u8],
 		access: StorageTextureAccess, binding: Binding,
 	) -> ShaderBufferHandle {
 		self
 			.store_buffer(binding, ShaderBufferInfo::new_write_texture(images, width, height, format, fill, access, binding))
-	}
-
-	/// Add a pair of new texture buffer initialized with the provided solid color, to provide the ability to copy data out. This was an earlier pass on providing the value for texture double buffering, and it's not recommended to use this anymore.
-	/// - images: The `Assets<Image>` resource from Bevy.
-	/// - width: The width of the texture in pixels.
-	/// - height: The height of the texture in pixels.
-	/// - format: The pixel format of the texture.
-	/// - fill: One pixel's worth of data, provided as a byte array. The entire texture will be filled with this.
-	/// - access: Whether this texture is read-only, write-only or read-write. This is ignored if the texture is double buffered.
-	/// - read_binding: How the read texture will be bound for access from the shader. See [Binding] for details.
-	/// - write_binding: How the write texture will be bound for access from the shader. See [Binding] for details.
-	pub fn add_read_write_texture(
-		&mut self, images: &mut Assets<Image>, width: u32, height: u32, format: TextureFormat, fill: &[u8],
-		read_binding: Binding, write_binding: Binding,
-	) -> (ShaderBufferHandle, ShaderBufferHandle) {
-		let (read, write) =
-			ShaderBufferInfo::new_read_write_texture(images, width, height, format, fill, read_binding, write_binding);
-		(self.store_buffer(read_binding, read), self.store_buffer(write_binding, write))
 	}
 
 	pub(crate) fn bind_groups(&self, device: &RenderDevice, gpu_images: &RenderAssets<GpuImage>) -> Vec<BindGroup> {
@@ -541,39 +477,6 @@ impl ShaderBufferSet {
 			buffer.set(data, render_queue);
 		} else {
 			panic!("Tried to set data on a non-existent buffer");
-		}
-	}
-
-	pub(crate) fn copy_texture(
-		&self, src_handle: ShaderBufferHandle, dst_handle: ShaderBufferHandle, render_context: &mut RenderContext,
-		images: &RenderAssets<GpuImage>,
-	) {
-		if let (Some(src), Some(dst)) = (self.get_buffer(src_handle), self.get_buffer(dst_handle)) {
-			if let (Some(src), Some(dst)) = (src.image_handle(), dst.image_handle()) {
-				if let (Some(src), Some(dst)) = (images.get(&src), images.get(&dst)) {
-					let encoder = render_context.command_encoder();
-					encoder.copy_texture_to_texture(
-						src.texture.as_image_copy(),
-						dst.texture.as_image_copy(),
-						Extent3d { width: src.texture.width(), height: src.texture.height(), depth_or_array_layers: 1 },
-					);
-				} else {
-					panic!(
-						"Tried to copy from texture {} to texture {} when at least one of them doesn't exist on the GPU",
-						src_handle, dst_handle
-					);
-				}
-			} else {
-				panic!(
-					"Tried to copy from texture {} to texture {} when at least one of them isn't a texture",
-					src_handle, dst_handle
-				);
-			}
-		} else {
-			panic!(
-				"Tried to copy from texture {} to texture {} when at least one of them doesn't exist",
-				src_handle, dst_handle
-			);
 		}
 	}
 

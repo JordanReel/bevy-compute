@@ -7,13 +7,11 @@ use bevy::{
 	ecs::system::SystemState,
 	prelude::*,
 	render::{
-		render_asset::RenderAssets,
 		render_graph::{Node, NodeRunError, RenderGraphContext},
 		render_resource::{
 			CachedComputePipelineId, CachedPipelineState, ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache,
 		},
 		renderer::{RenderContext, RenderDevice, RenderQueue},
-		texture::GpuImage,
 	},
 };
 
@@ -245,7 +243,6 @@ impl Node for ComputeNode {
 		let device = world.resource::<RenderDevice>();
 		let buffers = world.resource::<ShaderBufferSet>();
 		let render_buffers = world.resource::<ShaderBufferRenderSet>();
-		let images = world.resource::<RenderAssets<GpuImage>>();
 
 		// Iterate over all the steps and run them.
 		for step in self.step_states.iter() {
@@ -261,9 +258,6 @@ impl Node for ComputeNode {
 					} else {
 						render_buffers.copy_to_copy_buffer(src, buffers, context);
 					}
-				}
-				ComputeAction::CopyTexture { src, dst } => {
-					buffers.copy_texture(src, dst, context, images);
 				}
 				ComputeAction::RunShader { x_workgroup_count, y_workgroup_count, z_workgroup_count, .. } => {
 					if let Some(id) = step.id {

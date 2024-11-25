@@ -43,7 +43,7 @@ fn setup(
 	mut commands: Commands, mut buffer_set: ResMut<ShaderBufferSet>, mut images: ResMut<Assets<Image>>,
 	mut start_compute_events: EventWriter<StartComputeEvent>,
 ) {
-	let image = buffer_set.add_write_texture(
+	let image = buffer_set.add_texture_fill(
 		&mut images,
 		SIZE.0,
 		SIZE.1,

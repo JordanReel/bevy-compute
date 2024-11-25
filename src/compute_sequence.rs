@@ -58,15 +58,6 @@ pub enum ComputeAction {
 		z_workgroup_count: u32,
 	},
 
-	/// This action copies a texture buffer to another texture buffer of identical size and format.
-	CopyTexture {
-		/// The source buffer, to copy from.
-		src: ShaderBufferHandle,
-
-		/// The destination buffer, to copy to.
-		dst: ShaderBufferHandle,
-	},
-
 	/// This action copies the contents of a buffer back to the CPU. When this runs, it will throw a [CopyBufferEvent](crate::CopyBufferEvent), which contains the data. This is fairly slow, and actually takes two iterations to run, because the data must first be copied into an intermediate buffer before being copied to the CPU. It's highly recommended that if this is on a compute task that runs for many iterations, it's run with a max frequency. But keep in mind that because it takes two iterations to run, the frequency with which you will recieve data will be half the specified frequency.
 	CopyBuffer {
 		/// The buffer to copy out of.

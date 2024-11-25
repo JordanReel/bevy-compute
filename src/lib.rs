@@ -24,10 +24,9 @@
 //! - [add_storage_zeroed](ShaderBufferSet::add_storage_zeroed) - Add a storage buffer filled with 0 bytes.
 //! - [add_storage_init](ShaderBufferSet::add_storage_init) - Add a storage buffer with initial data provided.
 //! - [add_uniform_init](ShaderBufferSet::add_uniform_init) - Add a uniform buffer with initial data provided.
-//! - [add_write_texture](ShaderBufferSet::add_write_texture) - Add a texture buffer that shaders can write to.
-//! - [add_read_write_texture](ShaderBufferSet::add_read_write_texture) - Add one texture buffer that shaders can write to, and a matching texture buffer that the CPU can read from, such that the texture data can be copied back to the CPU.
+//! - [add_texture_fill](ShaderBufferSet::add_texture_fill) - Add a texture buffer filled with a solid color.
 //!
-//! All of these require a [ShaderBufferHandle], which you can store and treat like an opaque reference to access the buffer in the future. Except for [add_read_write_texture](ShaderBufferSet::add_read_write_texture), which returns a tuple of two such handles.
+//! All of these return a [ShaderBufferHandle], which you can store and treat like an opaque reference to access the buffer in the future. Except for [add_texture_fill](ShaderBufferSet::add_texture_fill), which returns a tuple of two such handles.
 //!
 //! Every one of these functions takes a [Binding], which determines how it's bound to the shaders. WGSL shaders require that each buffer have a group and a binding, which are numeric identifiers used to match the buffers specified on the CPU to those that exist in the shaders. The [Binding] is an enum, which can come in three types:
 //!
@@ -60,7 +59,6 @@
 //! The second field of the [ComputeStep] is a [ComputeAction], which is an enum which describes what to actually do. It has the following options:
 //!
 //! - [RunShader](ComputeAction::RunShader) - The meat of the compute shaders. This runs an actual shader. You must provide the Bevy asset path to the shader file, the name of the entry point function in that shader file, and the workgroup count in the x, y and z dimensions.
-//! - [CopyTexture](ComputeAction::CopyTexture) - Copy the data between two texture buffers. They must be identical size and format.
 //! - [CopyBuffer](ComputeAction::CopyBuffer) - Copy the data from a buffer to the CPU. Will be returned as a `Vec<u8>` via a [CopyBufferEvent].
 //! - [SwapBuffers](ComputeAction::SwapBuffers) - Swap double buffers. See the "Double Buffering" section below.
 //!
@@ -70,7 +68,7 @@
 //!
 //! So this plugin supports this directly. When you declare a buffer with the [Double](Binding::Double) binding type, it will actually create two buffers internally. One of them is considered the front buffer, which will be bound to the first binding provided, and the back buffer will be bound to the second binding. When the [SwapBuffers](ComputeAction::SwapBuffers) compute action happens, it will swap which buffer is considered the front buffer.
 //!
-//! When you do a [CopyBuffer](ComputeAction::CopyBuffer) or [CopyTexture](ComputeAction::CopyTexture) compute action on a double buffer, it will always copy out of the front buffer. Also, if you call the [image_handle](ShaderBufferSet::image_handle) function on a double buffer texture, it will return the handle for the front buffer.
+//! When you do a [CopyBuffer](ComputeAction::CopyBuffer) compute action on a double buffer, it will always copy out of the front buffer. Also, if you call the [image_handle](ShaderBufferSet::image_handle) function on a double buffer texture, it will return the handle for the front buffer.
 //!
 //! There's also a special accommodation for using a double buffered texture on a Bevy sprite. If you put the [DoubleBufferedSprite] component on an entity that also has a `Handle<Image>` on it, it will automatically update that handle every frame to contain the new front buffer.
 
