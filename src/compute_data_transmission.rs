@@ -1,6 +1,6 @@
 use std::sync::mpsc::{Receiver, SyncSender};
 
-use super::{ComputeGroupDoneEvent, CopyBufferEvent};
+use super::{ComputeTaskDoneEvent, CopyBufferEvent};
 use crate::shader_buffer_set::ShaderBufferHandle;
 
 pub struct ComputeDataTransmission {
@@ -10,6 +10,6 @@ pub struct ComputeDataTransmission {
 
 pub enum ComputeMessage {
 	CopyBuffer(CopyBufferEvent),
-	GroupDone(ComputeGroupDoneEvent),
+	GroupDone(ComputeTaskDoneEvent),
 	SwapBuffers(ShaderBufferHandle),
 }

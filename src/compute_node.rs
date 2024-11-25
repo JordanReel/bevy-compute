@@ -21,7 +21,7 @@ use super::{
 	compute_bind_groups::ComputeBindGroups,
 	compute_data_transmission::ComputeMessage,
 	compute_sequence::{ComputeAction, ComputeSequence, ComputeStep},
-	ComputeGroupDoneEvent, CopyBufferEvent,
+	ComputeTaskDoneEvent, CopyBufferEvent,
 };
 use crate::shader_buffer_set::{ShaderBufferRenderSet, ShaderBufferSet};
 
@@ -115,7 +115,7 @@ impl Node for ComputeNode {
 				self
 					.sequence
 					.sender
-					.send(ComputeMessage::GroupDone(ComputeGroupDoneEvent {
+					.send(ComputeMessage::GroupDone(ComputeTaskDoneEvent {
 						group_finished: self.current_task - 1,
 						group_finished_label: group.label.clone(),
 						time_in_group: now - self.group_start_time,

@@ -1,3 +1,7 @@
+// Note that aside from this comment, this shader is copied precisely from the Bevy Game of Life
+// example, in order to enable a clear comparison between Bevy's compute shader system directly
+// and using this crate.
+
 // The shader reads the previous frame's state from the `input` texture, and writes the new state of
 // each pixel to the `output` texture. The textures are flipped each step to progress the
 // simulation.

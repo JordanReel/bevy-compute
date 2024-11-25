@@ -2,12 +2,12 @@ use bevy::prelude::*;
 
 use super::{
 	compute_data_transmission::{ComputeDataTransmission, ComputeMessage},
-	ComputeGroupDoneEvent, CopyBufferEvent,
+	ComputeTaskDoneEvent, CopyBufferEvent,
 };
 use crate::shader_buffer_set::ShaderBufferSet;
 
 pub fn parse_render_messages(
-	mut copy_buffer_events: EventWriter<CopyBufferEvent>, mut group_done_events: EventWriter<ComputeGroupDoneEvent>,
+	mut copy_buffer_events: EventWriter<CopyBufferEvent>, mut group_done_events: EventWriter<ComputeTaskDoneEvent>,
 	mut buffer_set: ResMut<ShaderBufferSet>, transmission: NonSend<ComputeDataTransmission>,
 ) {
 	while let Ok(data) = transmission.receiver.try_recv() {

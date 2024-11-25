@@ -122,10 +122,16 @@ enum ShaderBufferInfo {
 	Double { binding: (u32, (u32, u32)), front: FrontBuffer, storage: (ShaderBufferStorage, ShaderBufferStorage) },
 }
 
+/// Specifies how a given buffer will be bound to the shaders.
 #[derive(Clone, Copy)]
 pub enum Binding {
+	/// This will be a single buffer accessible in shaders. The first number is the group, and the second the binding.
 	SingleBound(u32, u32),
+
+	/// This buffer will not be accessible in shaders. While there are absolutely uses for unbound buffers, it's rare that it'll be useful to specify an unbound buffer at this layer.
 	SingleUnbound,
+
+	/// This will actually be two buffers, of identical size, type and format. One will the front buffer, that is read from, and the other the back buffer, that is written to. Which buffers is which can be swapped with the [SwapBuffers](crate::ComputeAction::SwapBuffers) compute action. The first number is the group they will be both be bound in, and the second tuple is the bindings of the front and back buffers, respectively. If this binding is used for a texture buffer, then the front buffer will always be `ReadOnly` and the back buffer `WriteOnly`, overriding the provided access specifier.
 	Double(u32, (u32, u32)),
 }
 
@@ -332,6 +338,7 @@ impl ShaderBufferInfo {
 	}
 }
 
+/// Provides a system for managing all the buffers used by your shaders. This gives you the functions to add buffers, delete buffers, set the contents of buffers, and for texture buffers, to extract their image handle for display.
 #[derive(Resource, Clone, ExtractResource)]
 pub struct ShaderBufferSet {
 	buffers: HashMap<u32, ShaderBufferInfo>,
@@ -339,9 +346,12 @@ pub struct ShaderBufferSet {
 	next_id: u32,
 }
 
+/// This is an opaque identifier you can store to reference a buffer again in the future.
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub enum ShaderBufferHandle {
+	#[doc(hidden)]
 	Bound { group: u32, id: u32 },
+	#[doc(hidden)]
 	Unbound { id: u32 },
 }
 
@@ -364,20 +374,39 @@ fn bind_group_layout(buffers: &Vec<&ShaderBufferInfo>, device: &RenderDevice) ->
 }
 
 impl ShaderBufferSet {
-	pub fn new() -> Self { Self { buffers: HashMap::new(), groups: Vec::new(), next_id: 0 } }
+	pub(crate) fn new() -> Self { Self { buffers: HashMap::new(), groups: Vec::new(), next_id: 0 } }
 
+	/// Add a new uninitialized storage buffer.
+	/// - render_device: The [RenderDevice] resouce from Bevy.
+	/// - size: The size of the buffer in bytes.
+	/// - usage: See Bevy's [BufferUsages].
+	/// - binding: How the buffer will be bound for access from the shader. See [Binding] for details. Specifying [Binding::Double] makes this a double buffer.
+	/// - readonly: If true, then this buffer can only be read in the shader, and can't be written to.
 	pub fn add_storage_uninit(
 		&mut self, render_device: &RenderDevice, size: u32, usage: BufferUsages, binding: Binding, readonly: bool,
 	) -> ShaderBufferHandle {
 		self.store_buffer(binding, ShaderBufferInfo::new_storage_uninit(render_device, size, usage, binding, readonly))
 	}
 
+	/// Add a new storage buffer initialized to all zero bytes.
+	/// - render_device: The [RenderDevice] resouce from Bevy.
+	/// - size: The size of the buffer in bytes.
+	/// - usage: See Bevy's [BufferUsages].
+	/// - binding: How the buffer will be bound for access from the shader. See [Binding] for details. Specifying [Binding::Double] makes this a double buffer.
+	/// - readonly: If true, then this buffer can only be read in the shader, and can't be written to.
 	pub fn add_storage_zeroed(
 		&mut self, render_device: &RenderDevice, size: u32, usage: BufferUsages, binding: Binding, readonly: bool,
 	) -> ShaderBufferHandle {
 		self.store_buffer(binding, ShaderBufferInfo::new_storage_zeroed(render_device, size, usage, binding, readonly))
 	}
 
+	/// Add a new storage buffer initialized with the provided data.
+	/// - render_device: The [RenderDevice] resouce from Bevy.
+	/// - render_queue: The [RenderQueue] resource from Bevy.
+	/// - data: The data. Must implement the [ShaderType] trait. The buffer's size will be determined by the size of this data.
+	/// - usage: See Bevy's [BufferUsages].
+	/// - binding: How the buffer will be bound for access from the shader. See [Binding] for details. Specifying [Binding::Double] makes this a double buffer, in which case both buffers will be initialized with the provided data.
+	/// - readonly: If true, then this buffer can only be read in the shader, and can't be written to.
 	pub fn add_storage_init<T: ShaderType + WriteInto + Clone + Default>(
 		&mut self, render_device: &RenderDevice, render_queue: &RenderQueue, data: T, usage: BufferUsages,
 		binding: Binding, readonly: bool,
@@ -388,12 +417,26 @@ impl ShaderBufferSet {
 		)
 	}
 
+	/// Add a new uniform buffer initialized with the provided data.
+	/// - render_device: The [RenderDevice] resouce from Bevy.
+	/// - render_queue: The [RenderQueue] resource from Bevy.
+	/// - data: The data. Must implement the [ShaderType] trait. The buffer's size will be determined by the size of this data.
+	/// - usage: See Bevy's [BufferUsages].
+	/// - binding: How the buffer will be bound for access from the shader. See [Binding] for details. Specifying [Binding::Double] makes this a double buffer, but given that uniform buffers are always read-only, there's little point to double buffering them.
 	pub fn add_uniform_init<T: ShaderType + WriteInto + Clone + Default>(
 		&mut self, render_device: &RenderDevice, render_queue: &RenderQueue, data: T, usage: BufferUsages, binding: Binding,
 	) -> ShaderBufferHandle {
 		self.store_buffer(binding, ShaderBufferInfo::new_uniform_init(render_device, render_queue, data, usage, binding))
 	}
 
+	/// Add a new texture buffer initialized with the provided solid color.
+	/// - images: The `Assets<Image>` resource from Bevy.
+	/// - width: The width of the texture in pixels.
+	/// - height: The height of the texture in pixels.
+	/// - format: The pixel format of the texture.
+	/// - fill: One pixel's worth of data, provided as a byte array. The entire texture will be filled with this.
+	/// - access: Whether this texture is read-only, write-only or read-write. This is ignored if the texture is double buffered.
+	/// - binding: How the buffer will be bound for access from the shader. See [Binding] for details. Specifying [Binding::Double] makes this a double buffer, in which case the access mode specified in the previous argument is ignored.
 	pub fn add_write_texture(
 		&mut self, images: &mut Assets<Image>, width: u32, height: u32, format: TextureFormat, fill: &[u8],
 		access: StorageTextureAccess, binding: Binding,
@@ -402,6 +445,15 @@ impl ShaderBufferSet {
 			.store_buffer(binding, ShaderBufferInfo::new_write_texture(images, width, height, format, fill, access, binding))
 	}
 
+	/// Add a pair of new texture buffer initialized with the provided solid color, to provide the ability to copy data out. This was an earlier pass on providing the value for texture double buffering, and it's not recommended to use this anymore.
+	/// - images: The `Assets<Image>` resource from Bevy.
+	/// - width: The width of the texture in pixels.
+	/// - height: The height of the texture in pixels.
+	/// - format: The pixel format of the texture.
+	/// - fill: One pixel's worth of data, provided as a byte array. The entire texture will be filled with this.
+	/// - access: Whether this texture is read-only, write-only or read-write. This is ignored if the texture is double buffered.
+	/// - read_binding: How the read texture will be bound for access from the shader. See [Binding] for details.
+	/// - write_binding: How the write texture will be bound for access from the shader. See [Binding] for details.
 	pub fn add_read_write_texture(
 		&mut self, images: &mut Assets<Image>, width: u32, height: u32, format: TextureFormat, fill: &[u8],
 		read_binding: Binding, write_binding: Binding,
@@ -411,7 +463,7 @@ impl ShaderBufferSet {
 		(self.store_buffer(read_binding, read), self.store_buffer(write_binding, write))
 	}
 
-	pub fn bind_groups(&self, device: &RenderDevice, gpu_images: &RenderAssets<GpuImage>) -> Vec<BindGroup> {
+	pub(crate) fn bind_groups(&self, device: &RenderDevice, gpu_images: &RenderAssets<GpuImage>) -> Vec<BindGroup> {
 		self
 			.groups
 			.iter()
@@ -426,7 +478,7 @@ impl ShaderBufferSet {
 			.collect()
 	}
 
-	pub fn bind_group_layouts(&self, device: &RenderDevice) -> Vec<BindGroupLayout> {
+	pub(crate) fn bind_group_layouts(&self, device: &RenderDevice) -> Vec<BindGroupLayout> {
 		self
 			.groups
 			.iter()
@@ -437,6 +489,9 @@ impl ShaderBufferSet {
 			.collect()
 	}
 
+	/// Delete a buffer.
+	/// - handle: The handle to the buffer to be deleted.
+	/// - images: The `Assets<Image>` resource from Bevy.
 	pub fn delete_buffer(&mut self, handle: ShaderBufferHandle, images: &mut Assets<Image>) {
 		let buffer = match handle {
 			ShaderBufferHandle::Bound { group, id, .. } => {
@@ -455,6 +510,7 @@ impl ShaderBufferSet {
 		}
 	}
 
+	/// Get the image handle for a texture buffer. If the provided buffer isn't a texture buffer, it will just return None. If the provided buffer is a double buffer, it will return the image handle for the current front buffer.
 	pub fn image_handle(&self, handle: ShaderBufferHandle) -> Option<Handle<Image>> {
 		if let Some(buffer) = self.get_buffer(handle) {
 			buffer.image_handle()
@@ -463,7 +519,7 @@ impl ShaderBufferSet {
 		}
 	}
 
-	pub fn swap_front_buffer(&mut self, handle: ShaderBufferHandle) {
+	pub(crate) fn swap_front_buffer(&mut self, handle: ShaderBufferHandle) {
 		let buffer = self.get_mut_buffer(handle);
 		let Some(buffer) = buffer else {
 			panic!("Attempted to set the front buffer of {}, but it doesn't exist", handle);
@@ -477,6 +533,7 @@ impl ShaderBufferSet {
 		}
 	}
 
+	/// Set the contents of a buffer. The data must be a type that implements [ShaderType], and it must match the size of the buffer. If this is a double buffer, the both buffers will be set.
 	pub fn set_buffer<T: ShaderType + WriteInto + Clone>(
 		&mut self, handle: ShaderBufferHandle, data: T, render_queue: &RenderQueue,
 	) {
@@ -487,7 +544,7 @@ impl ShaderBufferSet {
 		}
 	}
 
-	pub fn copy_texture(
+	pub(crate) fn copy_texture(
 		&self, src_handle: ShaderBufferHandle, dst_handle: ShaderBufferHandle, render_context: &mut RenderContext,
 		images: &RenderAssets<GpuImage>,
 	) {
