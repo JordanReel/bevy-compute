@@ -29,7 +29,7 @@ All of these return a `ShaderBufferHandle`, which you can store and treat like a
 Every one of these functions takes a `Binding`, which determines how it's bound to the shaders. WGSL shaders require that each buffer have a group and a binding, which are numeric identifiers used to match the buffers specified on the CPU to those that exist in the shaders. The `Binding` is an enum, which can come in three types:
 
 - `SingleBound(u32, u32)` - This is the standard binding. The first value is the group and the second the binding.
-- `DoubleBound(u32, (u32, u32))` - This is a double buffer. There's actually two buffers. One is considered the front buffer, and one the back buffer, and they can be swapped. This is discussed in more detail in the "Double Buffering" section below.
+- `Double(u32, (u32, u32))` - This is a double buffer. There's actually two buffers. One is considered the front buffer, and one the back buffer, and they can be swapped. The first value the group both buffers will be in, and the tuple is the bindings of the front and back buffers, respectively. This is discussed in more detail in the "Double Buffering" section below.
 - `SingleUnbound` - This buffer is not bound, and is thus inaccessible in shaders. While there are unbound buffers used in the background for data transmission purposes, it's rarely if ever useful to specify this at this level.
 
 The `ShaderBufferSet` also provides a few more functions for managing buffers:
@@ -52,7 +52,7 @@ A compute task represents one stage of your compute shader program. The compute 
 
 Each `ComputeStep` contains just two fields.
 
-The first is an optional maximum frequency. If provided, this means this step won't necessarily run every iteration, but only if it's been long enough since the last time it ran. The frequency is in Hz, or iterations per second. So if a max frequency of 30 is provided, that means if it's been less than 1000/30=0.01667 seconds since the last time it ran, then it won't run this iteration. This is often useful if you have a long running computation, and want to display the results in real time. You can potentially speed things up by only updating the display at a set framerate, even if the computation is running at a much faster rate.
+The first is an optional maximum frequency. If provided, this means this step won't necessarily run every iteration, but only if it's been long enough since the last time it ran. The frequency is in Hz, or iterations per second. So if a max frequency of 30 is provided, that means if it's been less than 1000/30=16.67 ms since the last time it ran, then it won't run this iteration. This is often useful if you have a long running computation, and want to display the results in real time. You can potentially speed things up by only updating the display at a set framerate, even if the computation is running at a much faster rate.
 
 The second field of the `ComputeStep` is a `ComputeAction`, which is an enum which describes what to actually do. It has the following options:
 
@@ -64,8 +64,8 @@ The second field of the `ComputeStep` is a `ComputeAction`, which is an enum whi
 
 It can sometimes be useful to have double buffers, where one buffer is the front buffer, and one the back buffer, and you read from the front buffer while writing to the back buffer, and then swap them for the next frame. This allows you to avoid reading from and writing to the same buffer, which can result in weird behavior when some of the data you're reading was written last frame, and some was written earlier this frame.
 
-So this plugin supports this directly. When you declare a buffer with the `DoubleBound` binding type, it will actually create two buffers internally. One of them is considered the front buffer, which will be bound to the first binding provided, and the back buffer will be bound to the second binding. When the `SwapBuffers` compute action happens, it will swap which buffer is considered the front buffer.
+So this plugin supports this directly. When you declare a buffer with the `Double` binding type, it will actually create two buffers internally. One of them is considered the front buffer, which will be bound to the first binding provided, and the back buffer will be bound to the second binding. When the `SwapBuffers` compute action happens, it will swap which buffer is considered the front buffer.
 
-When you do a `CopyBuffer` or `CopyTexture` compute action on a double buffer, it will always copy out of the front buffer. Also, if you call the `image_handle` function on a double buffer texture, it will return the handle for the front buffer.
+When you do a `CopyBuffer` compute action on a double buffer, it will always copy out of the front buffer. Also, if you call the `image_handle` function on a double buffer texture, it will return the handle for the front buffer.
 
 There's also a special accommodation for using a double buffered texture on a Bevy sprite. If you put the `DoubleBufferedSprite` component on an entity that also has a `Handle<Image>` on it, it will automatically update that handle every frame to contain the new front buffer.

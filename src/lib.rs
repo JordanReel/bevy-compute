@@ -31,7 +31,7 @@
 //! Every one of these functions takes a [Binding], which determines how it's bound to the shaders. WGSL shaders require that each buffer have a group and a binding, which are numeric identifiers used to match the buffers specified on the CPU to those that exist in the shaders. The [Binding] is an enum, which can come in three types:
 //!
 //! - [SingleBound(u32, u32)](Binding::SingleBound) - This is the standard binding. The first value is the group and the second the binding.
-//! - [Double(u32, (u32, u32))](Binding::Double) - This is a double buffer. There's actually two buffers. One is considered the front buffer, and one the back buffer, and they can be swapped. This is discussed in more detail in the "Double Buffering" section below.
+//! - [Double(u32, (u32, u32))](Binding::Double) - This is a double buffer. There's actually two buffers. One is considered the front buffer, and one the back buffer, and they can be swapped. The first value the group both buffers will be in, and the tuple is the bindings of the front and back buffers, respectively. This is discussed in more detail in the "Double Buffering" section below.
 //! - [SingleUnbound](Binding::SingleUnbound) - This buffer is not bound, and is thus inaccessible in shaders. While there are unbound buffers used in the background for data transmission purposes, it's rarely if ever useful to specify this at this level.
 //!
 //! The [ShaderBufferSet] also provides a few more functions for managing buffers:
@@ -54,7 +54,7 @@
 //!
 //! Each [ComputeStep] contains just two fields.
 //!
-//! The first is an optional maximum frequency. If provided, this means this step won't necessarily run every iteration, but only if it's been long enough since the last time it ran. The frequency is in Hz, or iterations per second. So if a max frequency of 30 is provided, that means if it's been less than 1000/30=0.01667 seconds since the last time it ran, then it won't run this iteration. This is often useful if you have a long running computation, and want to display the results in real time. You can potentially speed things up by only updating the display at a set framerate, even if the computation is running at a much faster rate.
+//! The first is an optional maximum frequency. If provided, this means this step won't necessarily run every iteration, but only if it's been long enough since the last time it ran. The frequency is in Hz, or iterations per second. So if a max frequency of 30 is provided, that means if it's been less than 1000/30=16.67 ms since the last time it ran, then it won't run this iteration. This is often useful if you have a long running computation, and want to display the results in real time. You can potentially speed things up by only updating the display at a set framerate, even if the computation is running at a much faster rate.
 //!
 //! The second field of the [ComputeStep] is a [ComputeAction], which is an enum which describes what to actually do. It has the following options:
 //!
