@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::{shader_buffer_set::ShaderBufferSet, DoubleBufferedSprite};
 
 pub fn swap_sprite_buffers(
-	mut sprite: Query<(&mut Handle<Image>, &DoubleBufferedSprite)>, buffer_set: ResMut<ShaderBufferSet>,
+	mut sprite: Query<(&mut Sprite, &DoubleBufferedSprite)>, buffer_set: ResMut<ShaderBufferSet>,
 ) {
 	for (mut sprite, DoubleBufferedSprite(buffer_handle)) in sprite.iter_mut() {
 		let image = buffer_set.image_handle(*buffer_handle).unwrap_or_else(|| {
@@ -12,8 +12,6 @@ pub fn swap_sprite_buffers(
 				buffer_handle
 			)
 		});
-		if *sprite != image {
-			*sprite = image;
-		}
+		sprite.image = image;
 	}
 }

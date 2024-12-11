@@ -66,7 +66,7 @@ impl ComputeNode {
 			let mut pass = encoder.begin_compute_pass(&ComputePassDescriptor::default());
 			pass.set_pipeline(pipeline);
 			for (i, bind_group) in bind_groups.0.iter().enumerate() {
-				pass.set_bind_group(i as u32, &bind_group, &[]);
+				pass.set_bind_group(i as u32, bind_group, &[]);
 			}
 			pass.dispatch_workgroups(x_workgroup_size, y_workgroup_size, z_workgroup_size);
 		}
@@ -151,6 +151,7 @@ impl Node for ComputeNode {
 						shader: shader,
 						shader_defs: vec![],
 						entry_point: Cow::Owned(entry_point.clone()),
+						zero_initialize_workgroup_memory: true,
 					}))
 				} else {
 					None

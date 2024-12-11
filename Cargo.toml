@@ -8,7 +8,7 @@ name = "bevy_compute"
 crate-type = ["lib"]
 
 [dependencies]
-bevy = "0.14"
+bevy = "0.15"
 
 [[example]]
 name = "life"

@@ -54,15 +54,15 @@ fn setup(
 	);
 
 	commands.spawn((
-		SpriteBundle {
-			sprite: Sprite { custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)), ..default() },
-			texture: buffer_set.image_handle(image).unwrap(),
-			transform: Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
+		Sprite {
+			image: buffer_set.image_handle(image).unwrap(),
+			custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
 			..default()
 		},
+		Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
 		DoubleBufferedSprite(image),
 	));
-	commands.spawn(Camera2dBundle::default());
+	commands.spawn(Camera2d);
 
 	start_compute_events.send(StartComputeEvent {
 		tasks: vec![

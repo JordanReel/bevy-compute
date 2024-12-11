@@ -70,7 +70,7 @@
 //!
 //! When you do a [CopyBuffer](ComputeAction::CopyBuffer) compute action on a double buffer, it will always copy out of the front buffer. Also, if you call the [image_handle](ShaderBufferSet::image_handle) function on a double buffer texture, it will return the handle for the front buffer.
 //!
-//! There's also a special accommodation for using a double buffered texture on a Bevy sprite. If you put the [DoubleBufferedSprite] component on an entity that also has a `Handle<Image>` on it, it will automatically update that handle every frame to contain the new front buffer.
+//! There's also a special accommodation for using a double buffered texture on a Bevy sprite. The [DoubleBufferedSprite] component requires a [Sprite] component, and it will automatically update that image handle on that sprite every frame to contain the new front buffer.
 
 mod compute_bind_groups;
 mod compute_data_transmission;
@@ -168,6 +168,7 @@ pub struct ComputeTaskDoneEvent {
 	pub final_group: bool,
 }
 
-/// This component should be placed on any sprite entity that is intended to display a double buffered texture. There is an internal system that will grab any entity with one of these and a `Handle<Image>` component, and update the image handle to be the current front buffer.
+/// This component should be placed on any sprite entity that is intended to display a double buffered texture. It requires a [Sprite]. There is an internal system that will update the image handle on that [Sprite] to be the current front buffer.
 #[derive(Component)]
+#[require(Sprite)]
 pub struct DoubleBufferedSprite(pub ShaderBufferHandle);

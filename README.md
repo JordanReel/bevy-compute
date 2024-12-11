@@ -68,4 +68,4 @@ So this plugin supports this directly. When you declare a buffer with the `Doubl
 
 When you do a `CopyBuffer` compute action on a double buffer, it will always copy out of the front buffer. Also, if you call the `image_handle` function on a double buffer texture, it will return the handle for the front buffer.
 
-There's also a special accommodation for using a double buffered texture on a Bevy sprite. If you put the `DoubleBufferedSprite` component on an entity that also has a `Handle<Image>` on it, it will automatically update that handle every frame to contain the new front buffer.
+There's also a special accommodation for using a double buffered texture on a Bevy sprite. The `DoubleBufferedSprite` component requires a `Sprite` component, and it will automatically update that image handle on that sprite every frame to contain the new front buffer.
