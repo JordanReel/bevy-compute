@@ -94,6 +94,14 @@ impl ShaderBufferStorage {
 			_ => None,
 		}
 	}
+
+	pub fn gpu_buffer(&self) -> Option<Buffer> {
+		match self {
+			ShaderBufferStorage::Storage { buffer, .. } => Some(buffer.clone()),
+			ShaderBufferStorage::Uniform(buffer) => Some(buffer.clone()),
+			_ => None,
+		}
+	}
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -264,6 +272,21 @@ impl ShaderBufferInfo {
 					FrontBuffer::Second => storage2,
 				};
 				storage.image_handle()
+			}
+		}
+	}
+
+	fn gpu_buffer(&self) -> Option<Buffer> {
+		match &self {
+			ShaderBufferInfo::SingleBound { storage, .. } | ShaderBufferInfo::SingleUnbound { storage } => {
+				storage.gpu_buffer()
+			}
+			ShaderBufferInfo::Double { storage: (storage1, storage2), front, .. } => {
+				let storage = match front {
+					FrontBuffer::First => storage1,
+					FrontBuffer::Second => storage2,
+				};
+				storage.gpu_buffer()
 			}
 		}
 	}
@@ -446,10 +469,19 @@ impl ShaderBufferSet {
 		}
 	}
 
-	/// Get the image handle for a texture buffer. If the provided buffer isn't a texture buffer, it will just return None. If the provided buffer is a double buffer, it will return the image handle for the current front buffer.
+	/// Get the image handle for a texture buffer. If the provided buffer isn't a texture buffer, it will just return `None`. If the provided buffer is a double buffer, it will return the image handle for the current front buffer.
 	pub fn image_handle(&self, handle: ShaderBufferHandle) -> Option<Handle<Image>> {
 		if let Some(buffer) = self.get_buffer(handle) {
 			buffer.image_handle()
+		} else {
+			None
+		}
+	}
+
+	/// Get the GPU buffer, as a [bevy_render::render_resource::buffer], for a storage or uniform buffer. If the provided buffer isn't a storage or uniform buffer, it will just return `None`. If the provided buffer is a double buffer, it will return the GPU buffer for the current front buffer.
+	pub fn gpu_buffer(&self, handle: ShaderBufferHandle) -> Option<Buffer> {
+		if let Some(buffer) = self.get_buffer(handle) {
+			buffer.gpu_buffer()
 		} else {
 			None
 		}
