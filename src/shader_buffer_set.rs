@@ -19,8 +19,9 @@ use bevy::{
 		texture::GpuImage,
 		Extract, RenderApp,
 	},
-	utils::HashMap,
 };
+
+use bevy_platform::collections::hash_map::HashMap;
 
 #[derive(Clone)]
 enum ShaderBufferStorage {

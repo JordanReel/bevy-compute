@@ -9,6 +9,7 @@ crate-type = ["lib"]
 
 [dependencies]
 bevy = "0.16.1"
+bevy_platform = "0.16.1"
 
 [[example]]
 name = "life"
