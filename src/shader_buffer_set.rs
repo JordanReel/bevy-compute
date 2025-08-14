@@ -20,7 +20,6 @@ use bevy::{
 		Extract, RenderApp,
 	},
 };
-
 use bevy_platform::collections::hash_map::HashMap;
 
 #[derive(Clone)]
@@ -213,8 +212,10 @@ impl ShaderBufferInfo {
 				format,
 				RenderAssetUsages::RENDER_WORLD,
 			);
-			image.texture_descriptor.usage =
-				TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
+			image.texture_descriptor.usage = TextureUsages::COPY_DST
+				| TextureUsages::STORAGE_BINDING
+				| TextureUsages::TEXTURE_BINDING
+				| TextureUsages::RENDER_ATTACHMENT;
 			let image = images.add(image);
 			ShaderBufferStorage::StorageTexture { format, access, image }
 		})
