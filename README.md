@@ -1,3 +1,5 @@
+This fork added support for Bevy 0.16.1. Working on support for camera rendertargets in compute shaders.
+
 This crate is a plugin for the Bevy game engine to simplify the use of compute shaders.
 
 It provides a pretty simple API. First, add the `BevyComputePlugin` to your Bevy app. To initiate the compute shaders, first set up all the needed buffers in the `ShaderBufferSet`. Then, send a `StartComputeEvent` with a `Vec` of `ComputeTask`s that will define the sequence of shaders to run. If relevant, be prepared to recieve `CopyBufferEvent`s, which will have buffer data returned from the computer shaders back to the CPU, and `ComputeTaskDoneEvent`s, which will tell you that a given compute task has completed.
@@ -67,5 +69,6 @@ It can sometimes be useful to have double buffers, where one buffer is the front
 So this plugin supports this directly. When you declare a buffer with the `Double` binding type, it will actually create two buffers internally. One of them is considered the front buffer, which will be bound to the first binding provided, and the back buffer will be bound to the second binding. When the `SwapBuffers` compute action happens, it will swap which buffer is considered the front buffer.
 
 When you do a `CopyBuffer` compute action on a double buffer, it will always copy out of the front buffer. Also, if you call the `image_handle` function on a double buffer texture, it will return the handle for the front buffer.
+
 
 There's also a special accommodation for using a double buffered texture on a Bevy sprite. The `DoubleBufferedSprite` component requires a `Sprite` component, and it will automatically update that image handle on that sprite every frame to contain the new front buffer.
